@@ -1,6 +1,7 @@
 import chess
 import math
 import multiprocessing
+import time
 
 def distance_from_center(square: chess.Square) -> int:
     x = 0
@@ -63,34 +64,77 @@ def position_score(board: chess.Board) -> int:
                     score = score + 900
                 else:
                     score = score - 900
+            case chess.KING:
+                if board.color_at(s) == chess.WHITE:
+                    score += distance_from_center(s)
+                else:
+                    score -= distance_from_center(s)
+ 
     score -= all_piece_distance(board, chess.WHITE)
     score += all_piece_distance(board, chess.BLACK)
+    if board.is_check:
+        if board.turn == chess.WHITE:
+            score -= 150
+        else:
+            score += 150
+    
     return score
 
-def compute_best_move_depth(board: chess.Board, depth: int, position_scores: list[int]):
+def compute_best_move_depth(board: chess.Board, depth: int, position_scores: list[int], side: chess.Color):
     if depth > 0:
+        temp_scores = []
         for m in board.legal_moves:
             board.push(m)
-            position_scores.append(position_score(board))
-            if not board.is_checkmate():
-                compute_best_move_depth(board, depth-1, position_scores)
+            temp_scores.append([m, position_score(board)])
             board.pop()
+        if board.turn != side:
+            temp_scores.sort(key=lambda e: e[1])
+        else:
+            temp_scores.sort(key=lambda e: e[1], reverse=True)
+        if len(temp_scores) >= math.ceil(depth / 2):
+            for m in range(math.ceil(depth / 2)):
+                board.push(temp_scores[m][0])
+                if depth ==  1 or board.is_checkmate():
+                    position_scores.append(temp_scores[m][1])
+                elif not board.is_checkmate():
+                    compute_best_move_depth(board, depth-1, position_scores, side)
+                board.pop()
+        else:
+            for m in range(len(temp_scores)):
+                board.push(temp_scores[m][0])
+                if depth == 1 or board.is_checkmate():
+                    position_scores.append(temp_scores[m][1])
+                elif not board.is_checkmate():
+                    compute_best_move_depth(board, depth-1, position_scores, side)
+                board.pop()
+
     
     
 
-def compute_best_move(board: chess.Board, depth: int = 3) -> chess.Move:
+def compute_best_move(board: chess.Board, depth: int = 3, cores: int = 1) -> chess.Move:
+    manager = multiprocessing.Manager()
     moves = []
     processes = []
     k = 0
     for m in board.legal_moves:
-        k += 1
-        print(f'Move Calculation: {k}/{board.legal_moves.count()}')
         board.push(m)
-        moves.append([m, [position_score(board)]])
+        moves.append([m, manager.list([])])
         if not board.is_checkmate():
-            compute_best_move_depth(board, depth - 1, moves[-1][1])
+            p = multiprocessing.Process(target=compute_best_move_depth, args=(board, depth-1, moves[-1][1], board.turn))
+            processes.append(p)
+            p.start()
         board.pop()
-    best_move = [0, -1_000_000] 
+        if len(processes) == cores:
+            processes[0].join()
+            k = k + 1
+            print(f'{k}/{board.legal_moves.count()} moves analyzed')
+            processes = processes[1:]
+    for p in processes:
+        p.join()
+        k = k + 1
+        print(f'{k}/{board.legal_moves.count()} moves analyzed')
+
+    best_move = [0, -1_000_000]
     if board.turn == chess.BLACK:
         best_move = [0, 1_000_000]
     for m in moves:
