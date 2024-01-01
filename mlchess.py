@@ -1,147 +1,99 @@
 import chess
 import math
-import multiprocessing
-import time
 
-def distance_from_center(square: chess.Square) -> int:
-    x = 0
-    y = 0
-    match chess.square_file(square):
-        case 0: x = 3
-        case 1: x = 2
-        case 2: x = 1
-        case 5: x = 1
-        case 6: x = 2
-        case 7: x = 3
-    match chess.square_rank(square):
-        case 0: y = 3
-        case 1: y = 2
-        case 2: y = 1
-        case 5: y = 1
-        case 6: y = 2
-        case 7: y = 3
-    return int(math.sqrt(x**2 + y**2))
 
-def all_piece_distance(b: chess.Board, side: chess.Color) -> int:
-    total_dis = 0
-    for s in chess.SQUARES:
-        if b.piece_at(s) != None and b.piece_at(s).color == side:
-            total_dis = total_dis + distance_from_center(s)
-    return total_dis
+        
 
-def position_score(board: chess.Board) -> int:
-    score = 0
-    if board.is_checkmate():
-        if board.turn == chess.WHITE:
-            return -1200
-        else:
-            return 1200
-    # Count up piece values
-    for s in chess.SQUARES:
-        match board.piece_type_at(s):
-            case chess.PAWN:
-                if board.color_at(s) == chess.WHITE:
-                    score = score + 100
-                else:
-                    score = score - 100
-            case chess.KNIGHT:
-                if board.color_at(s) == chess.WHITE:
-                    score = score + 280
-                else:
-                    score = score - 280
-            case chess.BISHOP:
-                if board.color_at(s) == chess.WHITE:
-                    score = score + 320
-                else:
-                    score = score - 320
-            case chess.ROOK:
-                if board.color_at(s) == chess.WHITE:
-                    score = score + 500
-                else:
-                    score = score - 500
-            case chess.QUEEN:
-                if board.color_at(s) == chess.WHITE:
-                    score = score + 900
-                else:
-                    score = score - 900
-            case chess.KING:
-                if board.color_at(s) == chess.WHITE:
-                    score += distance_from_center(s)
-                else:
-                    score -= distance_from_center(s)
- 
-    score -= all_piece_distance(board, chess.WHITE)
-    score += all_piece_distance(board, chess.BLACK)
-    if board.is_check:
-        if board.turn == chess.WHITE:
-            score -= 150
-        else:
-            score += 150
+
+class ChessNode:
+    '''!
+    This class will represent a single position within the MLChess tree. It needs parents and children
+    upon instantiation. (Its children can just be an empty list.)
+    '''
+    __center_pieces = [chess.D4, chess.E4, chess.D5, chess.E5]
+    def __init__(self, board: chess.Board, parent: 'ChessNode', children: ['ChessNode']):
+        self.board = board
+        self.score = ChessNode.__score_board(board)
+        self.takes_piece = ChessNode.__takes_piece(board)
+        self.parent = parent
+        self.children = children
+        
     
-    return score
-
-def compute_best_move_depth(board: chess.Board, depth: int, position_scores: list[int], side: chess.Color):
-    if depth > 0:
-        temp_scores = []
-        for m in board.legal_moves:
-            board.push(m)
-            temp_scores.append([m, position_score(board)])
-            board.pop()
-        if board.turn != side:
-            temp_scores.sort(key=lambda e: e[1])
-        else:
-            temp_scores.sort(key=lambda e: e[1], reverse=True)
-        if len(temp_scores) >= math.ceil(depth / 2):
-            for m in range(math.ceil(depth / 2)):
-                board.push(temp_scores[m][0])
-                if depth ==  1 or board.is_checkmate():
-                    position_scores.append(temp_scores[m][1])
-                elif not board.is_checkmate():
-                    compute_best_move_depth(board, depth-1, position_scores, side)
-                board.pop()
-        else:
-            for m in range(len(temp_scores)):
-                board.push(temp_scores[m][0])
-                if depth == 1 or board.is_checkmate():
-                    position_scores.append(temp_scores[m][1])
-                elif not board.is_checkmate():
-                    compute_best_move_depth(board, depth-1, position_scores, side)
-                board.pop()
-
+    @staticmethod
+    def __score_board(board: chess.Board) -> int:
+        # Check for checkmate
+        if board.is_checkmate():
+            if board.turn == chess.WHITE:
+                return -1200
+            elif board.turn == chess.BLACK:
+                return 1200
+        
+        score = 0
+        # How far forward pawns are advanced
+        for square in board.pieces(chess.PAWN, chess.WHITE):
+            score += ChessNode.__pawn_advance_score(square, chess.WHITE)
+        for square in board.pieces(chess.PAWN, chess.BLACK):
+            score += ChessNode.__pawn_advance_score(square, chess.BLACK)
+        
+        # How close pieces are to the center, and Material Difference
+        for piece_type in chess.PIECE_TYPES[:5]:
+            for color in chess.COLORS:
+                for square in board.pieces(piece_type, color):
+                    piece_score = 0
+                    match piece_type:
+                        case chess.PAWN:
+                            piece_score = 100
+                        case chess.ROOK:
+                            piece_score = 500
+                        case chess.KNIGHT:
+                            piece_score = 280
+                        case chess.BISHOP:
+                            piece_score = 300
+                        case chess.QUEEN:
+                            piece_score = 800
+                    if color == chess.WHITE:
+                        score -= 2 * min([chess.square_distance(square, s) for s in ChessNode.__center_pieces])
+                        score += piece_score
+                    elif color == chess.BLACK:
+                        score += 2 * min([chess.square_distance(square, s) for s in ChessNode.__center_pieces])
+                        score -= piece_score
+        
+        # If there is a check
+        if board.is_check():
+            if board.turn == chess.WHITE:
+                score -= 50
+            elif board.turn == chess.BLACK:
+                score += 50
+        return score
     
+    @staticmethod
+    def __pawn_advance_score(square: chess.Square, color: chess.Color) -> int:
+        if color == chess.WHITE:
+            return chess.square_rank(square)
+        elif color == chess.BLACK:
+            return -9 + chess.square_rank(square)
+        else:
+            return 0
     
+    @staticmethod
+    def __takes_piece(board: chess.Board) -> bool:
+        move = board.pop()
+        if board.piece_at(move.to_square) != None:
+            board.push(move)
+            return True
+        if (board.piece_at(move.from_square) == chess.PAWN and
+            chess.square_file(move.from_square) != chess.square_file(move.to_square)):
+            board.push(move)
+            return True
+        return False
+        
 
-def compute_best_move(board: chess.Board, depth: int = 3, cores: int = 1) -> chess.Move:
-    manager = multiprocessing.Manager()
-    moves = []
-    processes = []
-    k = 0
-    for m in board.legal_moves:
-        board.push(m)
-        moves.append([m, manager.list([])])
-        if not board.is_checkmate():
-            p = multiprocessing.Process(target=compute_best_move_depth, args=(board, depth-1, moves[-1][1], board.turn))
-            processes.append(p)
-            p.start()
-        board.pop()
-        if len(processes) == cores:
-            processes[0].join()
-            k = k + 1
-            print(f'{k}/{board.legal_moves.count()} moves analyzed')
-            processes = processes[1:]
-    for p in processes:
-        p.join()
-        k = k + 1
-        print(f'{k}/{board.legal_moves.count()} moves analyzed')
-
-    best_move = [0, -1_000_000]
-    if board.turn == chess.BLACK:
-        best_move = [0, 1_000_000]
-    for m in moves:
-        if board.turn == chess.WHITE:
-            if sum(m[1])/len(m[1]) > best_move[1]:
-                best_move = [m[0], sum(m[1])/len(m[1])]
-        if board.turn == chess.BLACK:
-            if sum(m[1])/len(m[1]) < best_move[1]:
-                best_move = [m[0], sum(m[1])/len(m[1])]
-    return best_move[0]
+class MLChess:
+    CHECK_DEPTH = 3
+    NUM_BEST = 5
+    NUM_LEAST_DEPTH = 5
+    def __init__(self, board: chess.Board = chess.Board()):
+        self.root = ChessNode(board, None, [])
+    
+    def __get_average_leaf_node_score(node: ChessNode):
+    
