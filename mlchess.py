@@ -92,7 +92,7 @@ class MLChess:
     This class will find the best move for the computer to make, and then make it. It also accepts
     user input for moves.
     '''
-    CHECK_DEPTH = 3
+    CHECK_DEPTH = 2
     NUM_BEST = 5
     NUM_LEAST_DEPTH = 5
     def __init__(self, board: chess.Board = chess.Board()):
@@ -117,7 +117,10 @@ class MLChess:
         if self.root.board.is_checkmate():
             print('No possible moves')
             return
+        
         self.__initial_scoring()
+        
+        # King Checks
         for i in range(ticks):
             print(f'Working on tick {i+1}/{ticks}')
             # Evaluate moves that put king in check
@@ -125,14 +128,46 @@ class MLChess:
             for leaf in leaf_nodes:
                 if leaf.board.is_check():
                     MLChess.__king_check_moves(leaf, MLChess.CHECK_DEPTH - 1)
+
+            # Evaluate all moves where a piece is taken
+            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
+            for leaf in leaf_nodes:
+                if leaf.takes_piece:
+                    for move in leaf.board.legal_moves:
+                        new_board = leaf.board.copy()
+                        new_board.push(move)
+                        new_node = ChessNode(new_board, leaf)
+                        leaf.children.append(new_node)
+            
+            # Evaluate best performing moves
+            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root).sort(key = lambda v: v.score)
+            for i in range(MLChess.NUM_BEST):
+                for move in leaf.board.legal_moves:
+                    new_board = leaf.board.copy()
+                    new_board.push(move)
+                    new_node = ChessNode(new_board, leaf)
+                    leaf.children.append(new_node)
+        
+        # If any move is checkmate, take that move.
+        for child in self.root.children:
+            leaf_nodes = MLChess.__get_all_leaf_nodes(child)
+            is_checkmate = True
+            for leaf in leaf_nodes:
+                if not leaf.board.is_checkmate() or leaf.board.turn == self.root.turn:
+                    is_checkmate = False
+                    break
+            if is_checkmate:
+                self.root = ChessNode(child.board, None)
+                return self.root.board.peek()
         
         # Find and return best move
         best_position = self.root.children[0]
         for child in self.root.children:
-            if child.score > best_position.score:
+            if self.root.board.turn == chess.WHITE and child.score > best_position.score:
+                best_position = child
+            elif self.root.board.turn == chess.BLACK and child.score < best_position.score:
                 best_position = child
         self.root = ChessNode(best_position.board, None)
-        
         return self.root.board.peek()
     
     def __initial_scoring(self):
