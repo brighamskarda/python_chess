@@ -126,7 +126,7 @@ class MLChess:
             # Evaluate moves that put king in check
             for child in self.root.children:
                 if child.board.is_check():
-                    if MLChess.__king_check_moves(child, MLChess.CHECK_DEPTH - 1):
+                    if MLChess.__king_check_moves(child, MLChess.CHECK_DEPTH * i):
                         self.root = ChessNode(best_position.board, None)
                         return self.root.board.peek()
 
