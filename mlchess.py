@@ -127,7 +127,7 @@ class MLChess:
             for child in self.root.children:
                 if child.board.is_check():
                     if MLChess.__king_check_moves(child, MLChess.CHECK_DEPTH * i):
-                        self.root = ChessNode(best_position.board, None)
+                        self.root = ChessNode(child.board, None)
                         return self.root.board.peek()
 
             # Evaluate all moves where a piece is taken
