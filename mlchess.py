@@ -153,7 +153,7 @@ class MLChess:
             leaf_nodes = MLChess.__get_all_leaf_nodes(child)
             is_checkmate = True
             for leaf in leaf_nodes:
-                if not leaf.board.is_checkmate() or leaf.board.turn == self.root.turn:
+                if not leaf.board.is_checkmate() or leaf.board.turn == self.root.board.turn:
                     is_checkmate = False
                     break
             if is_checkmate:
