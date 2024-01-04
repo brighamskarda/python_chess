@@ -4,10 +4,10 @@ import time
 
 board = MLChess()
 
-# board.root.board.set_board_fen('rnbqkbnr/ppp2ppp/8/4N3/2B1p3/8/PPPP1PPP/RNBQK2R')
+# board.root.board.set_board_fen('rnbqk2r/pppp1ppp/3b1n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R')
 # board.root.board.turn = chess.BLACK
 
-# board.computer_move_tick(4)
+# board.computer_move_time()
 
 # print(board.root.board)
 

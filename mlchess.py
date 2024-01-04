@@ -56,10 +56,10 @@ class ChessNode:
                         case chess.QUEEN:
                             piece_score = 800
                     if color == chess.WHITE:
-                        score -= 2 * min([chess.square_distance(square, s) for s in ChessNode.__center_pieces])
+                        score -= min([chess.square_distance(square, s) for s in ChessNode.__center_pieces])
                         score += piece_score
                     elif color == chess.BLACK:
-                        score += 2 * min([chess.square_distance(square, s) for s in ChessNode.__center_pieces])
+                        score += min([chess.square_distance(square, s) for s in ChessNode.__center_pieces])
                         score -= piece_score
         
         # If there is a check
@@ -68,7 +68,41 @@ class ChessNode:
                 score -= 50
             elif board.turn == chess.BLACK:
                 score += 50
+        
+        # Number of possible attacks
+        for m in board.legal_moves:
+            if ChessNode.__move_is_attack(board, m):
+                if board.turn == chess.WHITE:
+                    score += 1
+                else:
+                    score -= 1
+        board.turn = not board.turn
+        for m in board.legal_moves:
+            if ChessNode.__move_is_attack(board, m):
+                if board.turn == chess.WHITE:
+                    score += 1
+                else:
+                    score -= 1
+        board.turn = not board.turn
+        
+        # If the last move was a castle
+        last_move = None
+        try:
+            last_move = board.peek()
+        except Exception as e :
+            return score
+        if board.piece_type_at(last_move.to_square) == chess.KING and chess.square_distance(last_move.from_square, last_move.to_square) >= 2:
+            if board.turn == chess.WHITE:
+                score -= 40
+            else:
+                score += 40
         return score
+    
+    @staticmethod
+    def __move_is_attack(board: chess.Board, move: chess.Move) -> bool:
+        if board.piece_at(move.to_square) != None:
+            return True
+        return False
     
     @staticmethod
     def __pawn_advance_score(square: chess.Square, color: chess.Color) -> int:
@@ -185,7 +219,7 @@ class MLChess:
             return
         
         self.__initial_scoring()
-        
+
         time_start = time.time()
         check_depth = 1
         # King Checks
