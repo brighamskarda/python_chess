@@ -2,6 +2,7 @@ from mlchess import MLChess
 import chess
 
 board = MLChess()
+
 while not board.root.board.is_checkmate():
     print()
     print(board.root.board)

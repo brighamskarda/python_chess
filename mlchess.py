@@ -126,7 +126,7 @@ class MLChess:
             # Evaluate moves that put king in check
             for child in self.root.children:
                 if child.board.is_check():
-                    if MLChess.__king_check_moves(child, MLChess.CHECK_DEPTH * i):
+                    if MLChess.__king_check_moves(child, MLChess.CHECK_DEPTH * (i + 1)):
                         self.root = ChessNode(child.board, None)
                         return self.root.board.peek()
 
@@ -182,6 +182,7 @@ class MLChess:
                 node.children.append(new_node)
         
         # Make all of your possible moves after opponent moves
+        forced_checkmate = True
         for child in node.children:
             for m in child.board.legal_moves:
                 if not any(m == grandchild.board.peek() for grandchild in child.children):
@@ -190,11 +191,18 @@ class MLChess:
                     new_node = ChessNode(new_board, child)
                     child.children.append(new_node)
             # Continue the chain for grandchildren that put opponent in check
+            forced_checkmate = False
             for grandchild in child.children:
                 if grandchild.board.is_check() and not grandchild.board.is_checkmate():
-                    return MLChess.__king_check_moves(grandchild, depth-1)
+                    if MLChess.__king_check_moves(grandchild, depth-1):
+                        forced_checkmate = True
+                        break
                 if grandchild.board.is_checkmate():
-                    return True
+                    forced_checkmate = True
+                    break
+            if not forced_checkmate:
+                break
+        return forced_checkmate
         
         
     
