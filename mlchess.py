@@ -13,6 +13,14 @@ class ChessNode:
         self.takes_piece = ChessNode.__takes_piece(board)
         self.parent = parent
         self.children: list[ChessNode] = []
+    
+    def get_depth(self) -> int:
+        current_node = self
+        depth = 0
+        while current_node.parent != None:
+            current_node = current_node.parent
+            depth += 1
+        return depth
         
     
     @staticmethod
@@ -94,7 +102,7 @@ class MLChess:
     '''
     CHECK_DEPTH = 1
     NUM_BEST = 5
-    NUM_LEAST_DEPTH = 5
+    NUM_LEAST_DEPTH = 25
     def __init__(self, board: chess.Board = chess.Board()):
         self.root = ChessNode(board, None)
         
@@ -129,7 +137,22 @@ class MLChess:
                     if MLChess.__king_check_moves(child, MLChess.CHECK_DEPTH * (i + 1)):
                         self.root = ChessNode(child.board, None)
                         return self.root.board.peek()
-
+                        
+            # Evaluate best performing moves with a bias for moves of a smaller depth
+            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
+            leaf_nodes.sort(key = lambda v: v.get_depth())
+            # if self.root.board.turn == chess.WHITE:
+            #     leaf_nodes.sort(key = lambda v: v.score + 10000 * v.get_depth())
+            # if self.root.board.turn == chess.BLACK:
+            #     leaf_nodes.sort(key = lambda v: v.score + 10000 * v.get_depth(), reverse=True)    
+            for i in range(MLChess.NUM_LEAST_DEPTH):
+                if i < len(leaf_nodes):
+                    for move in leaf_nodes[i].board.legal_moves:
+                        new_board = leaf_nodes[i].board.copy()
+                        new_board.push(move)
+                        new_node = ChessNode(new_board, leaf_nodes[i])
+                        leaf_nodes[i].children.append(new_node)
+                        
             # Evaluate all moves where a piece is taken
             leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
             for leaf in leaf_nodes:
@@ -139,16 +162,16 @@ class MLChess:
                         new_board.push(move)
                         new_node = ChessNode(new_board, leaf)
                         leaf.children.append(new_node)
-            
-            # Evaluate best performing moves
-            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root).sort(key = lambda v: v.score)
-            for i in range(MLChess.NUM_BEST):
-                for move in leaf.board.legal_moves:
-                    new_board = leaf.board.copy()
-                    new_board.push(move)
-                    new_node = ChessNode(new_board, leaf)
-                    leaf.children.append(new_node)
-        
+            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
+            for leaf in leaf_nodes:
+                if leaf.takes_piece:
+                    for move in leaf.board.legal_moves:
+                        new_board = leaf.board.copy()
+                        new_board.push(move)
+                        new_node = ChessNode(new_board, leaf)
+                        leaf.children.append(new_node)
+                        leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
+
         # Score each of the children
         scored_children = [(child, MLChess.__child_scoring(child)) for child in self.root.children]
         
