@@ -1,5 +1,5 @@
 import chess
-import copy
+import time
 
 class ChessNode:
     '''!
@@ -176,12 +176,82 @@ class MLChess:
         self.root = best_position
         return self.root.board.peek()
     
+    def computer_move_time(self, seconds: int = 15) -> chess.Move:
+        '''!
+        The computer makes a move, and returns the move in case you want to see what it was.
+        '''
+        if self.root.board.is_checkmate():
+            print('No possible moves')
+            return
+        
+        self.__initial_scoring()
+        
+        time_start = time.time()
+        check_depth = 1
+        # King Checks
+        while True:
+            # Evaluate moves that put king in check
+            for child in self.root.children:
+                if child.board.is_check():
+                    if MLChess.__king_check_moves(child, check_depth):
+                        self.root = ChessNode(child.board, None)
+                        return self.root.board.peek()
+                if seconds < time.time() - time_start:
+                    return self.__return_best_move()
+            if seconds < time.time() - time_start:
+                return self.__return_best_move()
+            check_depth += 1            
+            # Evaluate best performing moves with a bias for moves of a smaller depth
+            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
+            leaf_nodes.sort(key = lambda v: v.get_depth())
+            for i in range(MLChess.NUM_LEAST_DEPTH):
+                if i < len(leaf_nodes):
+                    for move in leaf_nodes[i].board.legal_moves:
+                        new_board = leaf_nodes[i].board.copy()
+                        new_board.push(move)
+                        new_node = ChessNode(new_board, leaf_nodes[i])
+                        leaf_nodes[i].children.append(new_node)
+                if seconds < time.time() - time_start:
+                    return self.__return_best_move()
+            if seconds < time.time() - time_start:
+                return self.__return_best_move()
+                        
+            # Evaluate all moves where a piece is taken
+            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
+            for leaf in leaf_nodes:
+                if leaf.takes_piece:
+                    for move in leaf.board.legal_moves:
+                        new_board = leaf.board.copy()
+                        new_board.push(move)
+                        new_node = ChessNode(new_board, leaf)
+                        leaf.children.append(new_node)
+                if seconds < time.time() - time_start:
+                    return self.__return_best_move()
+            if seconds < time.time() - time_start:
+                return self.__return_best_move()
+    
+    def __return_best_move(self):
+        # Score each of the children
+        scored_children = [(child, MLChess.__child_scoring(child)) for child in self.root.children]
+        
+        # Find and return best move
+        best_position = None
+        if self.root.board.turn == chess.WHITE:
+            best_position = max(scored_children, key=lambda a: a[1])[0]
+        if self.root.board.turn == chess.BLACK:
+            best_position = min(scored_children, key=lambda a: a[1])[0]
+        best_position.parent = None
+        self.root = best_position
+        return self.root.board.peek()
+
+    
     def __initial_scoring(self):
         for m in self.root.board.legal_moves:
-            new_board = self.root.board.copy()
-            new_board.push(m)
-            new_node = ChessNode(new_board, self.root)
-            self.root.children.append(new_node)
+            if not any(m == child.board.peek() for child in self.root.children):
+                new_board = self.root.board.copy()
+                new_board.push(m)
+                new_node = ChessNode(new_board, self.root)
+                self.root.children.append(new_node)
     
     @staticmethod
     def __child_scoring(child: ChessNode) -> int:

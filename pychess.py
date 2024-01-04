@@ -1,5 +1,6 @@
 from mlchess import MLChess
 import chess
+import time
 
 board = MLChess()
 
@@ -16,6 +17,8 @@ while not board.root.board.is_checkmate():
     if board.root.board.turn == chess.WHITE:
         board.user_move(input('Enter Move: '))
     else:
-        board.computer_move_tick(5)
+        time_start = time.time()
+        board.computer_move_time()
+        print(f'Time Taken: {time.time() - time_start} seconds')
 
     
