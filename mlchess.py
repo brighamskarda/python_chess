@@ -102,7 +102,7 @@ class MLChess:
     '''
     CHECK_DEPTH = 1
     NUM_BEST = 5
-    NUM_LEAST_DEPTH = 25
+    NUM_LEAST_DEPTH = 20
     def __init__(self, board: chess.Board = chess.Board()):
         self.root = ChessNode(board, None)
         
@@ -162,15 +162,6 @@ class MLChess:
                         new_board.push(move)
                         new_node = ChessNode(new_board, leaf)
                         leaf.children.append(new_node)
-            leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
-            for leaf in leaf_nodes:
-                if leaf.takes_piece:
-                    for move in leaf.board.legal_moves:
-                        new_board = leaf.board.copy()
-                        new_board.push(move)
-                        new_node = ChessNode(new_board, leaf)
-                        leaf.children.append(new_node)
-                        leaf_nodes = MLChess.__get_all_leaf_nodes(self.root)
 
         # Score each of the children
         scored_children = [(child, MLChess.__child_scoring(child)) for child in self.root.children]
