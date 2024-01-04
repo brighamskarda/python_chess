@@ -149,13 +149,15 @@ class MLChess:
                     new_node = ChessNode(new_board, leaf)
                     leaf.children.append(new_node)
         
+        # Score each of the children
+        scored_children = [(child, MLChess.__child_scoring(child)) for child in self.root.children]
+        
         # Find and return best move
-        best_position = self.root.children[0]
-        for child in self.root.children:
-            if self.root.board.turn == chess.WHITE and child.score > best_position.score:
-                best_position = child
-            elif self.root.board.turn == chess.BLACK and child.score < best_position.score:
-                best_position = child
+        best_position = None
+        if self.root.board.turn == chess.WHITE:
+            best_position = max(scored_children, key=lambda a: a[1])[0]
+        if self.root.board.turn == chess.BLACK:
+            best_position = min(scored_children, key=lambda a: a[1])[0]
         best_position.parent = None
         self.root = best_position
         return self.root.board.peek()
@@ -166,6 +168,18 @@ class MLChess:
             new_board.push(m)
             new_node = ChessNode(new_board, self.root)
             self.root.children.append(new_node)
+    
+    @staticmethod
+    def __child_scoring(child: ChessNode) -> int:
+        if len(child.children) == 0:
+            return child.score
+        scores = []
+        for grandchild in child.children:
+            scores.append(MLChess.__child_scoring(grandchild))
+        if child.board.turn == chess.WHITE:
+            return max(scores)
+        if child.board.turn == chess.BLACK:
+            return min(scores)
     
     @staticmethod
     def __king_check_moves(node: ChessNode, depth: int) -> bool:
