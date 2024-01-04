@@ -92,7 +92,7 @@ class MLChess:
     This class will find the best move for the computer to make, and then make it. It also accepts
     user input for moves.
     '''
-    CHECK_DEPTH = 2
+    CHECK_DEPTH = 1
     NUM_BEST = 5
     NUM_LEAST_DEPTH = 5
     def __init__(self, board: chess.Board = chess.Board()):
