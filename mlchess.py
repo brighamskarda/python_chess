@@ -156,7 +156,8 @@ class MLChess:
                 best_position = child
             elif self.root.board.turn == chess.BLACK and child.score < best_position.score:
                 best_position = child
-        self.root = ChessNode(best_position.board, None)
+        best_position.parent = None
+        self.root = best_position
         return self.root.board.peek()
     
     def __initial_scoring(self):
